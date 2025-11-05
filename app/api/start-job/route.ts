@@ -37,30 +37,32 @@ export async function POST(request: Request) {
     const jobId = `job${Date.now()}`;
     await kv.set(jobId, { status: 'pending' });
 
-    let audioUrl: string = '';
+    let audioUrl: string = "";
     try {
       const output: any = await ytdlp(url, {
-        format: 'ba/bestaudio',
+        format: "ba/bestaudio",
         getUrl: true,
       });
 
-      if (output && typeof output.stdout === 'string') {
-        audioUrl = output.stdout.trim().split('\n')[0];
-      } else if (output && typeof output.url === 'string') {
+      if (typeof output === "string") {
+        audioUrl = output.trim().split("\n")[0];
+      } else if (output && typeof output.stdout === "string") {
+        audioUrl = output.stdout.trim().split("\n")[0];
+      } else if (output && typeof output.url === "string") {
         audioUrl = output.url;
-      } else if (output && Array.isArray(output.formats) && output.formats.length > 0 && output.formats[0].url) {
+      } else if (output && Array.isArray(output.formats) && output.formats.length > 0) {
         audioUrl = output.formats[0].url;
-      } else if (typeof output === 'string') {
-        audioUrl = (output as string).trim().split('\n')[0];
+      } else {
+        audioUrl = "";
       }
 
-      if (!audioUrl.startsWith('http')) {
-        throw new Error('Could not get a valid audio URL from yt-dlp.');
+      if (!audioUrl.startsWith("http")) {
+        throw new Error("Could not get a valid audio URL from yt-dlp.");
       }
     } catch (dlpError: any) {
-      console.error('yt-dlp error:', dlpError);
+      console.error("yt-dlp error:", dlpError);
       return NextResponse.json(
-        { error: 'Failed to get audio from URL', details: dlpError.message },
+        { error: "Failed to get audio from URL", details: dlpError.message },
         { status: 500 }
       );
     }
@@ -71,11 +73,11 @@ export async function POST(request: Request) {
       webhook_url: webhookUrl,
     });
 
-    return NextResponse.json({ status: 'pending', jobId }, { status: 202 });
+    return NextResponse.json({ status: "pending", jobId }, { status: 202 });
   } catch (error: any) {
-    console.error('Error in start-job:', error);
+    console.error("Error in start-job:", error);
     return NextResponse.json(
-      { error: 'Internal Server Error', details: error.message },
+      { error: "Internal Server Error", details: error.message },
       { status: 500 }
     );
   }
