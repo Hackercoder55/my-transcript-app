@@ -2,22 +2,24 @@
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
 import { YoutubeTranscript } from 'youtube-transcript';
-import { AssemblyClient } from 'assemblyai';
+// --- THIS IS THE FIRST FIX ---
+import { AssemblyAI } from 'assemblyai';
+// ------------------------------
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execPromise = promisify(exec);
 
-// Initialize AssemblyAI client
-const assembly = new AssemblyClient({
+// --- THIS IS THE SECOND FIX ---
+const assembly = new AssemblyAI({
   apiKey: process.env.ASSEMBLYAI_API_KEY || '',
 });
+// ------------------------------
 
 // Helper to get Vercel's public URL
 const getBaseUrl = () => {
   if (process.env.VERCEL_URL) {
-    // IMPORTANT: Replace 'my-transcript-app' with your actual Vercel project name
-    // It should look like: https://your-project-name.vercel.app
+    // This should be your project name.
     return `https://my-transcript-app.vercel.app`; 
   }
   return 'http://localhost:3000'; // Default for local development
