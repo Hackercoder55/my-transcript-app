@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: my-transcript-app
+    runtime: docker
+    port: 3000
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: ASSEMBLYAI_API_KEY
+        scope: build,runtime
+      - key: VERCEL_KV_URL
+        scope: build,runtime
+      - key: VERCEL_KV_REST_API_URL
+        scope: build,runtime
+      - key: VERCEL_KV_REST_API_TOKEN
+        scope: build,runtime
