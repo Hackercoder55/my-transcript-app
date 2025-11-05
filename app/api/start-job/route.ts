@@ -1,25 +1,21 @@
 // This file is: app/api/start-job/route.ts
+// THIS IS THE CORRECTED VERSION
+
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
 import { YoutubeTranscript } from 'youtube-transcript';
-// --- THIS IS THE FIRST FIX ---
 import { AssemblyAI } from 'assemblyai';
-// ------------------------------
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import ytdlp from 'yt-dlp-exec'; // <-- THIS IS THE IMPORT WE NEEDED
 
-const execPromise = promisify(exec);
-
-// --- THIS IS THE SECOND FIX ---
+// Initialize AssemblyAI client
 const assembly = new AssemblyAI({
   apiKey: process.env.ASSEMBLYAI_API_KEY || '',
 });
-// ------------------------------
 
 // Helper to get Vercel's public URL
 const getBaseUrl = () => {
   if (process.env.VERCEL_URL) {
-    // This should be your project name.
+    // This is your project name, which you said is correct
     return `https://my-transcript-app.vercel.app`; 
   }
   return 'http://localhost:3000'; // Default for local development
@@ -35,6 +31,7 @@ export async function POST(request: Request) {
     const baseUrl = getBaseUrl();
 
     // --- Path 1: YouTube (Fast & Free) ---
+    // We check for "shorts" links too
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       try {
         const transcript = await YoutubeTranscript.fetchTranscript(url);
@@ -46,12 +43,11 @@ export async function POST(request: Request) {
           { status: 200 }
         );
       } catch (youtubeError) {
-        // If YouTube transcripts are disabled, we fall back to AssemblyAI
+        // This is expected if a video has no captions
         console.warn(
-          'YouTube transcript failed, falling back to AssemblyAI:',
-          youtubeError
+          'YouTube transcript failed (likely no captions), falling back to AssemblyAI'
         );
-        // Do not return here, let it fall through to Path 2
+        // Do not return, let it fall through to Path 2
       }
     }
 
@@ -66,19 +62,23 @@ export async function POST(request: Request) {
     // 3. Get audio URL with yt-dlp
     let audioUrl: string;
     try {
-      // We use --get-url and -f 'ba[ext=m4a]' to get the direct best audio link
-      // 'ba' means 'best audio'
-      const { stdout } = await execPromise(
-        `yt-dlp-exec -f "ba[ext=m4a]/ba" --get-url "${url}"`
-      );
-      audioUrl = stdout.trim().split('\n')[0]; // Get the first line
+      // --- THIS IS THE CORRECTED CODE ---
+      // We are now using the imported 'ytdlp' library as a function
+      const output = await ytdlp(url, {
+        format: 'ba[ext=m4a]/ba', // 'ba' = best audio
+        getUrl: true,
+      });
+      // ----------------------------------
+
+      audioUrl = output.trim().split('\n')[0]; // Get the first line
       
       if (!audioUrl.startsWith('http')) {
-        throw new Error('Could not get a valid audio URL.');
+        throw new Error('Could not get a valid audio URL from yt-dlp.');
       }
     } catch (dlpError: any) {
       console.error('yt-dlp error:', dlpError);
       return NextResponse.json(
+        // This is the error message you saw
         { error: 'Failed to get audio from URL', details: dlpError.message },
         { status: 500 }
       );
