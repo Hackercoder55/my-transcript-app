@@ -1,5 +1,5 @@
 // This file is: app/api/start-job/route.ts
-// THIS IS THE FINAL CORRECTED VERSION (v3)
+// THIS IS THE FINAL CORRECTED VERSION (v4)
 
 import { NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
@@ -58,9 +58,9 @@ export async function POST(request: Request) {
         getUrl: true,
       });
 
-      // --- THIS IS THE FIX ---
-      // We access the 'stdout' (standard output) property of the result
-      audioUrl = output.stdout.trim().split('\n')[0];
+      // --- THIS IS THE FIX (Line 63) ---
+      // We cast to 'any' to bypass the incomplete TypeScript type
+      audioUrl = (output as any).stdout.trim().split('\n')[0];
       // ---------------------
       
       if (!audioUrl.startsWith('http')) {
