@@ -6,18 +6,13 @@ import { YoutubeTranscript } from 'youtube-transcript';
 import { AssemblyAI } from 'assemblyai';
 import ytdlp from 'yt-dlp-exec';
 
-// Initialize AssemblyAI client (v3.x supports constructor)
 const assembly = new AssemblyAI({
   apiKey: process.env.ASSEMBLYAI_API_KEY!,
 });
 
-// Helper to get Vercel's public URL
-const getBaseUrl = () => {
-  if (process.env.VERCEL_URL) {
-    return 'https://my-transcript-app.vercel.app'; // Change as needed for your deployment
-  }
-  return 'http://localhost:3000';
-};
+const getBaseUrl = () => process.env.VERCEL_URL
+  ? 'https://my-transcript-app.vercel.app'
+  : 'http://localhost:3000';
 
 export async function POST(request: Request) {
   try {
@@ -29,7 +24,6 @@ export async function POST(request: Request) {
 
     const baseUrl = getBaseUrl();
 
-    // --- YouTube Path: fast/captions available ---
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
       try {
         const transcript = await YoutubeTranscript.fetchTranscript(url);
@@ -37,23 +31,28 @@ export async function POST(request: Request) {
         return NextResponse.json({ status: 'completed', text: transcriptText }, { status: 200 });
       } catch (youtubeError) {
         console.warn('YouTube transcript failed, will use AssemblyAI.', youtubeError);
-        // Fall through to slow path
       }
     }
 
-    // --- Instagram/failed YouTube: slow path via yt-dlp and AssemblyAI ---
     const jobId = `job${Date.now()}`;
     await kv.set(jobId, { status: 'pending' });
 
-    let audioUrl: string;
+    let audioUrl: string = '';
     try {
-      // yt-dlp-exec result: object with .stdout property
-      const output = await ytdlp(url, {
+      const output: any = await ytdlp(url, {
         format: 'ba/bestaudio',
         getUrl: true,
       });
 
-      audioUrl = (output as any).stdout.trim().split('\n')[0];
+      if (output && typeof output.stdout === 'string') {
+        audioUrl = output.stdout.trim().split('\n')[0];
+      } else if (output && typeof output.url === 'string') {
+        audioUrl = output.url;
+      } else if (output && Array.isArray(output.formats) && output.formats.length > 0 && output.formats[0].url) {
+        audioUrl = output.formats[0].url;
+      } else if (typeof output === 'string') {
+        audioUrl = (output as string).trim().split('\n')[0];
+      }
 
       if (!audioUrl.startsWith('http')) {
         throw new Error('Could not get a valid audio URL from yt-dlp.');
@@ -68,9 +67,9 @@ export async function POST(request: Request) {
 
     const webhookUrl = `${baseUrl}/api/webhook?jobId=${jobId}`;
     await assembly.transcripts.create({
-        audio_url: audioUrl,
-        webhook_url: webhookUrl,
-      });
+      audio_url: audioUrl,
+      webhook_url: webhookUrl,
+    });
 
     return NextResponse.json({ status: 'pending', jobId }, { status: 202 });
   } catch (error: any) {
